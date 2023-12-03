@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -62,14 +64,14 @@ func crawl(urls []string, folderPath string) {
 	}
 
 	// Process each URL
-	for _, url := range urls {
+	for _, link := range urls {
 		// Extract domain name from URL
-		domain := extractDomain(url)
+		domain := urlToFilename(link)
 
 		// Make a GET request
-		resp, err := http.Get(url)
+		resp, err := http.Get(link)
 		if err != nil {
-			fmt.Println("Error making HTTP request:", err, url)
+			fmt.Println("Error making HTTP request:", err, link)
 			continue
 		}
 		defer func(Body io.ReadCloser) {
@@ -80,7 +82,7 @@ func crawl(urls []string, folderPath string) {
 		}(resp.Body)
 
 		// Read the response body
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			fmt.Println("Error reading response body:", err)
 			continue
@@ -88,22 +90,36 @@ func crawl(urls []string, folderPath string) {
 
 		// Save the response body to a file
 		fileName := fmt.Sprintf("%s/%s.txt", outputFolderPath, domain)
-		err = ioutil.WriteFile(fileName, body, os.ModePerm)
+		err = os.WriteFile(fileName, body, os.ModePerm)
 		if err != nil {
 			fmt.Println("Error writing to file:", err)
 			continue
 		}
 
-		fmt.Printf("Saved %s to %s\n", url, fileName)
+		fmt.Printf("Saved %s to %s\n", link, fileName)
 	}
 }
 
-func extractDomain(url string) string {
-	parts := strings.Split(url, "//")
-	if len(parts) > 1 {
-		url = parts[1]
+func urlToFilename(inputURL string) string {
+	// Parse the URL
+	parsedURL, err := url.Parse(inputURL)
+	if err != nil {
+		// Handle error
+		return ""
 	}
 
-	parts = strings.Split(url, "/")
-	return parts[0]
+	suffix := filepath.Base(parsedURL.Path)
+
+	invalidCharRegex := regexp.MustCompile(`[^\w-]`)
+	safeHostname := invalidCharRegex.ReplaceAllString(parsedURL.Hostname(), "_")
+	safeSuffix := invalidCharRegex.ReplaceAllString(suffix, "_")
+
+	filename := safeHostname + "_" + safeSuffix
+
+	maxLength := 50
+	if len(filename) > maxLength {
+		filename = filename[:maxLength]
+	}
+
+	return filename
 }
