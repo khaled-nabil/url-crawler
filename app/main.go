@@ -38,18 +38,18 @@ func main() {
 	}
 
 	// first unscheduled crawl
-	crawl(urls)
+	crawl(urls, folderPath)
 
 	for {
 		<-timer.C
 
-		crawl(urls)
+		crawl(urls, folderPath)
 
 		timer.Reset(time.Hour * 24 * 7)
 	}
 }
 
-func crawl(urls []string) {
+func crawl(urls []string, folderPath string) {
 	fmt.Println("crawling in my skin", time.Now())
 
 	folderName := time.Now().Format("02.01.06")
